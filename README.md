@@ -106,6 +106,7 @@ Open the `vscode.code-workspace` file at the root of each scene in VS Code. Sele
 | SPH fluids | `scenes_ani3d/06_sph/` | [link](https://graphicscomputing.fr/course/2026_2027/epita_ani3d/practice/content/05_fluids/b_sph/) |
 | Skinning | `scenes_ani3d/07_skinning/` | [link](https://graphicscomputing.fr/course/2026_2027/epita_ani3d/practice/content/06_character_animation/a_skinning/) |
 | Character animation | `scenes_ani3d/08_character_animation/` | [link](https://graphicscomputing.fr/course/2026_2027/epita_ani3d/practice/content/06_character_animation/b_skeleton_animation/) |
+| Project: rooftop storm (cape, lightning, rain) | `scenes_ani3d/09_rooftop_storm/` | [README](scenes_ani3d/09_rooftop_storm/README.md) |
 
 ## Examples
 
