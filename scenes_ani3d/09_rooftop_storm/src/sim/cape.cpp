@@ -93,13 +93,16 @@ void cape_structure::step(float frame_dt, wind_structure const& wind, character_
 	// Fixed time step for stability, independent of the frame rate
 	float const h = 1.0f / (60.0f * param.substeps);
 	accumulated_time += std::min(frame_dt, 0.05f);
+	// At most 2 frames worth of substeps: if the machine is too slow, the simulation
+	// slows down instead of piling up work (avoids the "spiral of death")
+	int const max_steps = 2 * param.substeps;
 	int count = 0;
-	while (accumulated_time >= h && count < 4 * param.substeps) {
+	while (accumulated_time >= h && count < max_steps) {
 		substep(h, wind, character, roof);
 		accumulated_time -= h;
 		count++;
 	}
-	if (count == 4 * param.substeps)
+	if (count == max_steps)
 		accumulated_time = 0.0f; // too slow: drop time rather than spiral down
 
 	for (auto const& q : x)
@@ -162,17 +165,23 @@ void cape_structure::substep(float h, wind_structure const& wind, character_stru
 		for (auto const& c : constraints) {
 			float const wsum = w[c.i] + w[c.j];
 			if (wsum == 0.0f) continue;
-			vec3 const d = p[c.i] - p[c.j];
-			float const L = norm(d);
+			// Hot loop: written with plain floats (much faster than generic vec3 operators)
+			vec3& pi = p[c.i];
+			vec3& pj = p[c.j];
+			float const dx = pi.x - pj.x, dy = pi.y - pj.y, dz = pi.z - pj.z;
+			float const L = std::sqrt(dx * dx + dy * dy + dz * dz);
 			if (L < 1e-7f) continue;
 			// Bending: only resist compression lightly and stretching fully (allows nice folds)
 			float C = L - c.rest;
 			if (c.type == 2 && C < 0) C *= 0.5f;
-			vec3 const corr = (k_eff[c.type] * C / (wsum * L)) * d;
-			p[c.i] -= w[c.i] * corr;
-			p[c.j] += w[c.j] * corr;
+			float const s = k_eff[c.type] * C / (wsum * L);
+			float const si = s * w[c.i], sj = s * w[c.j];
+			pi.x -= si * dx; pi.y -= si * dy; pi.z -= si * dz;
+			pj.x += sj * dx; pj.y += sj * dy; pj.z += sj * dz;
 		}
-		solve_collisions(character, roof);
+		// Collisions every 3 iterations and always on the last one (enough to stay outside the body)
+		if (it % 3 == 2 || it == iters - 1)
+			solve_collisions(character, roof);
 	}
 
 	// 4. Velocity update
@@ -187,12 +196,24 @@ void cape_structure::solve_collisions(character_structure const& character, roof
 {
 	float const th = param.thickness;
 	int const N = int(p.size());
+
+	// Bounding box of the body colliders: quick rejection of the particles far from the body
+	vec3 body_min = {1e9f, 1e9f, 1e9f}, body_max = {-1e9f, -1e9f, -1e9f};
+	for (capsule const& c : character.colliders) {
+		float const R = c.r + th;
+		for (int a = 0; a < 3; ++a) {
+			body_min[a] = std::min(body_min[a], std::min(c.a[a], c.b[a]) - R);
+			body_max[a] = std::max(body_max[a], std::max(c.a[a], c.b[a]) + R);
+		}
+	}
 	for (int k = 0; k < N; ++k) {
 		if (w[k] == 0.0f) continue;
 		vec3& q = p[k];
 
 		// Body capsules: project outside of the inflated segment
-		for (capsule const& c : character.colliders) {
+		bool const near_body = q.x > body_min.x && q.x < body_max.x && q.y > body_min.y && q.y < body_max.y && q.z > body_min.z && q.z < body_max.z;
+		for (size_t kc = 0; near_body && kc < character.colliders.size(); ++kc) {
+			capsule const& c = character.colliders[kc];
 			vec3 const ab = c.b - c.a;
 			float const L2 = dot(ab, ab);
 			float t = L2 > 1e-8f ? std::clamp(dot(q - c.a, ab) / L2, 0.0f, 1.0f) : 0.0f;

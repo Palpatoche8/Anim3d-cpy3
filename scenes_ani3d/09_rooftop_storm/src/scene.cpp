@@ -3,7 +3,14 @@
 #include <algorithm>
 #include <cmath>
 
+#include <chrono>
 #include <cstdlib>
+
+namespace {
+	using clock_type = std::chrono::high_resolution_clock;
+	float ms_since(clock_type::time_point t0) { return std::chrono::duration<float, std::milli>(clock_type::now() - t0).count(); }
+	void smooth(float& v, float x) { v = 0.95f * v + 0.05f * x; }
+}
 
 using namespace cgp;
 
@@ -69,12 +76,17 @@ void scene_structure::display_frame()
 	if (simulation_running) {
 		simulated_time += dt;
 		wind.update(simulated_time);
+		auto t0 = clock_type::now();
 		cape.step(dt, wind, character, rooftop);
+		cape.update_drawable();
+		smooth(perf.cape, ms_since(t0));
 		lightning.update(dt, camera.position(), camera.forward());
+		t0 = clock_type::now();
 		if (gui.display_rain)
 			rain.update(dt, wind.mean(), camera.position());
+		smooth(perf.rain, ms_since(t0));
 	}
-	cape.update_drawable();
+	auto const t_render = clock_type::now();
 
 	environment.time = simulated_time;
 	environment.flash_intensity = lightning.flash;
@@ -116,12 +128,20 @@ void scene_structure::display_frame()
 	lightning.draw(environment, camera.position());
 	if (gui.display_rain)
 		rain.draw(environment);
+	smooth(perf.render, ms_since(t_render));
+	smooth(perf.frame, 1000.0f * inputs.time_interval);
+
+	static int frame_count = 0;
+	if (std::getenv("ROOFTOP_PROFILE") != nullptr && ++frame_count % 30 == 0)
+		std::cout << "frame " << perf.frame << " ms | cape " << perf.cape << " | rain " << perf.rain << " | render (CPU submit) " << perf.render << std::endl;
 }
 
 void scene_structure::display_gui()
 {
 	ImGui::Text("L: lightning  P: pause  R: reset cape  TAB: camera mode  H: hide GUI");
 	ImGui::Spacing();
+
+	ImGui::Text("Frame %.1f ms | cape %.1f | rain %.1f | draw %.1f", perf.frame, perf.cape, perf.rain, perf.render);
 
 	if (ImGui::CollapsingHeader("Simulation", ImGuiTreeNodeFlags_DefaultOpen)) {
 		ImGui::Checkbox("Running", &simulation_running);

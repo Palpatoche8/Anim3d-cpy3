@@ -47,6 +47,9 @@ struct scene_structure : cgp::scene_inputs_generic {
 	lightning_structure lightning;
 	rain_structure rain;
 
+	// CPU timings (ms, smoothed) displayed in the GUI
+	struct { float cape = 0, rain = 0, render = 0, frame = 0; } perf;
+
 	bool simulation_running = true;
 	float simulated_time = 0.0f;
 
