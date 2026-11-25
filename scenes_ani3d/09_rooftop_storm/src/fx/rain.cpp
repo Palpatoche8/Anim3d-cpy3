@@ -1,5 +1,8 @@
 #include "rain.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 using namespace cgp;
 
 vec3 rain_structure::spawn(vec3 const& c, bool anywhere)

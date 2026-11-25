@@ -1,5 +1,8 @@
 #include "mesh_builder.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 using namespace cgp;
 
 namespace mesh_builder

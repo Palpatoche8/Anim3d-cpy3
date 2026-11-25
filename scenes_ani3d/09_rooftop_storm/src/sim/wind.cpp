@@ -1,5 +1,8 @@
 #include "wind.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 using namespace cgp;
 
 static float hash(int x, int y, int z)

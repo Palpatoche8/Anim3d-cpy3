@@ -1,4 +1,7 @@
 #include "city.hpp"
+
+#include <algorithm>
+#include <cmath>
 #include "engine/mesh_builder.hpp"
 
 #include <random>

@@ -1,5 +1,8 @@
 #include "lightning.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 using namespace cgp;
 
 float lightning_structure::rand(float a, float b)
